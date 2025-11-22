@@ -76,7 +76,7 @@ func (s *server) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.Val
 }
 
 func main() {
-	h := db.Init("postgres://pixelflow:password@localhost:5432/auth_db?sslmode=disable")
+	h := db.Init("postgres://postgres:password@localhost:5432/auth_db?sslmode=disable")
 
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {

@@ -3,7 +3,6 @@ services:
     image: postgres:15-alpine
     container_name: pixelflow-postgres-auth
     environment:
-      POSTGRES_USER: pixelflow
       POSTGRES_PASSWORD: password
       POSTGRES_DB: auth_db
     ports:
