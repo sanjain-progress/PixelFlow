@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/sanjain/pixelflow/pkg/pb"
@@ -30,7 +31,11 @@ func main() {
 		Password: "password123",
 	})
 	if err != nil {
-		log.Println("Register failed:", err)
+		// Only continue if user already exists, otherwise exit
+		if !strings.Contains(err.Error(), "already exists") {
+			log.Fatalln("Register failed:", err)
+		}
+		fmt.Println("User already exists, skipping registration")
 	} else {
 		fmt.Printf("Registered User ID: %s\n", regRes.UserId)
 	}
