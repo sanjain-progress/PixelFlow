@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: pixelflow-postgres-auth
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    networks:
+      - pixelflow-net
+
+networks:
+  pixelflow-net:
+    driver: bridge
+
+volumes:
+  postgres_auth_data:

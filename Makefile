@@ -33,3 +33,11 @@ proto:
 	mkdir -p pkg/pb
 	mv proto/*.go pkg/pb/ 2>/dev/null || true
 	@echo "Done!"
+
+# Run infrastructure (Docker Compose)
+up:
+	docker-compose up -d
+
+# Stop infrastructure
+down:
+	docker-compose down
