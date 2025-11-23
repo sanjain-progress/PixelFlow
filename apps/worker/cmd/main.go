@@ -68,7 +68,11 @@ func main() {
 		slog.Info("Received task", "task_id", event.TaskID, "user_id", event.UserID)
 		
 		// Increment consumed metric
+		// Tracks total messages pulled from Kafka, regardless of processing outcome
 		metrics.KafkaMessagesConsumedTotal.Inc()
+		
+		// Track active tasks using a Gauge
+		// This helps us see if the worker is overwhelmed or stuck
 		metrics.ActiveProcessingTasks.Inc()
 		defer metrics.ActiveProcessingTasks.Dec()
 
@@ -76,11 +80,15 @@ func main() {
 
 		// Process the image
 		err := proc.ProcessImage(event.TaskID)
+		
+		// Record processing duration
+		// We use a Histogram to calculate percentiles (P95, P99) later
 		duration := time.Since(start).Seconds()
 		metrics.TaskProcessingDuration.Observe(duration)
 
 		if err != nil {
 			slog.Error("Failed to process task", "task_id", event.TaskID, "error", err)
+			// Track failures separately for error rate calculation
 			metrics.TasksProcessedTotal.WithLabelValues("failure").Inc()
 			metrics.KafkaConsumptionErrorsTotal.Inc()
 			return err

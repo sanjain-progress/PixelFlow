@@ -125,6 +125,8 @@ func main() {
 			}
 
 			// Increment Task Created Metric
+			// We track this to monitor the rate of new tasks entering the system.
+			// This is a key business metric.
 			metrics.TasksCreatedTotal.Inc()
 
 			// Publish event to Kafka
@@ -136,9 +138,11 @@ func main() {
 			if err != nil {
 				// Note: In production, we might want to rollback the DB insert or retry
 				slog.Error("Upload: Failed to publish to Kafka", "error", err)
+				// Track publish errors to alert on Kafka connectivity issues
 				metrics.KafkaPublishErrorsTotal.Inc()
 			} else {
 				slog.Info("Task published to Kafka", "task_id", task.ID.Hex())
+				// Track successful publishes to measure throughput
 				metrics.KafkaMessagesPublishedTotal.Inc()
 			}
 
