@@ -7,7 +7,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sanjain/pixelflow/apps/auth/internal/db"
+	"github.com/sanjain/pixelflow/apps/auth/internal/metrics"
+	"github.com/sanjain/pixelflow/apps/auth/internal/middleware"
 	"github.com/sanjain/pixelflow/apps/auth/internal/models"
 	"github.com/sanjain/pixelflow/apps/auth/internal/utils"
 )
@@ -37,6 +40,9 @@ func main() {
 	// Gin's default logger is replaced by our structured logger via middleware (optional, keeping default for now)
 	r := gin.Default()
 
+	// Prometheus Metrics Middleware
+	r.Use(middleware.PrometheusMiddleware())
+
 	// CORS Middleware
 	// Allows frontend (localhost:3000) to communicate with this service
 	r.Use(func(c *gin.Context) {
@@ -52,6 +58,9 @@ func main() {
 
 		c.Next()
 	})
+
+	// Prometheus Metrics Endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// POST /register
 	// Creates a new user account with hashed password
@@ -95,6 +104,9 @@ func main() {
 			return
 		}
 
+		// Record business metric
+		metrics.RegistrationsTotal.Inc()
+
 		slog.Info("User registered successfully", "email", req.Email, "user_id", user.ID)
 		c.JSON(200, gin.H{"message": "User registered successfully"})
 	})
@@ -123,6 +135,7 @@ func main() {
 
 		// Check password
 		if !utils.CheckPasswordHash(req.Password, user.Password) {
+			metrics.LoginsTotal.WithLabelValues("failure").Inc()
 			slog.Warn("Login: Invalid password", "email", req.Email)
 			c.JSON(401, gin.H{"error": "Invalid credentials"})
 			return
@@ -136,6 +149,9 @@ func main() {
 			return
 		}
 
+		// Record successful login
+		metrics.LoginsTotal.WithLabelValues("success").Inc()
+
 		slog.Info("User logged in successfully", "email", req.Email, "user_id", user.ID)
 		c.JSON(200, gin.H{"token": token})
 	})
@@ -145,12 +161,14 @@ func main() {
 	r.GET("/validate", func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			metrics.TokenValidationsTotal.WithLabelValues("invalid").Inc()
 			c.JSON(401, gin.H{"valid": false})
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
+			metrics.TokenValidationsTotal.WithLabelValues("invalid").Inc()
 			c.JSON(401, gin.H{"valid": false})
 			return
 		}
@@ -158,10 +176,14 @@ func main() {
 		token := parts[1]
 		userID, err := utils.ValidateJWT(token)
 		if err != nil {
+			metrics.TokenValidationsTotal.WithLabelValues("invalid").Inc()
 			slog.Warn("Validate: Invalid token", "error", err)
 			c.JSON(401, gin.H{"valid": false})
 			return
 		}
+
+		// Record successful validation
+		metrics.TokenValidationsTotal.WithLabelValues("valid").Inc()
 
 		c.JSON(200, gin.H{"valid": true, "user_id": userID})
 	})

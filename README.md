@@ -348,7 +348,7 @@ docker exec pixelflow-kafka kafka-console-consumer \
 ### Structured Logging
 All services output logs in **JSON format** (Structured Logging) for easy parsing and monitoring.
 
-### Viewing Logs
+#### Viewing Logs
 Use the following commands to view logs for each service:
 
 ```bash
@@ -358,20 +358,109 @@ docker-compose logs -f auth-service
 # API Service (Task creation/listing)
 docker-compose logs -f api-service
 
-# Worker Service (Task processing)
+# Worker Service (Background task processing)
 docker-compose logs -f worker-service
 
-# Frontend (Web server)
-docker-compose logs -f frontend
+# All services
+docker-compose logs -f
+
+# Filter by log level
+docker-compose logs auth-service | grep '"level":"ERROR"'
 ```
 
-### Common Debugging Scenarios
+### Prometheus Metrics
 
-#### 1. Registration Fails
-Check `auth-service` logs for "Register: User already exists" or database errors.
+Prometheus is deployed for real-time metrics collection and monitoring.
+
+**Access Prometheus UI:** http://localhost:9091
+
+#### Available Metrics
+
+**Auth Service** (`http://localhost:50051/metrics`):
+- `auth_requests_total{method, endpoint, status}` - HTTP request counter
+- `auth_request_duration_seconds{method, endpoint}` - Request latency histogram
+- `auth_registrations_total` - Total user registrations
+- `auth_logins_total{status}` - Login attempts (success/failure)
+- `auth_token_validations_total{status}` - JWT token validations
+
+#### Useful PromQL Queries
+
+```promql
+# Request rate (requests per second)
+rate(auth_requests_total[5m])
+
+# P95 latency
+histogram_quantile(0.95, rate(auth_request_duration_seconds_bucket[5m]))
+
+# Login success rate (percentage)
+sum(rate(auth_logins_total{status="success"}[5m])) / sum(rate(auth_logins_total[5m])) * 100
+
+# Registrations in last hour
+increase(auth_registrations_total[1h])
+
+# Error rate
+rate(auth_requests_total{status=~"5.."}[5m])
+```
+
+#### Prometheus Troubleshooting
+
+**Check Targets Status:**
 ```bash
-docker-compose logs --tail=50 auth-service | grep "Register"
+# View all scrape targets
+curl -s 'http://localhost:9091/api/v1/targets' | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
+
+# Expected output:
+# {"job": "auth-service", "health": "up"}
+# {"job": "prometheus", "health": "up"}
 ```
+
+**Verify Metrics Endpoint:**
+```bash
+# Check if Auth Service exposes metrics
+curl http://localhost:50051/metrics | head -20
+
+# Query specific metric via Prometheus API
+curl -s 'http://localhost:9091/api/v1/query?query=auth_requests_total' | jq
+```
+
+**Common Issues:**
+
+1. **Target shows as DOWN**
+   ```bash
+   # Check if service is running
+   docker ps | grep pixelflow-auth
+   
+   # Verify /metrics endpoint is accessible
+   curl http://localhost:50051/metrics
+   
+   # Check Prometheus logs
+   docker logs pixelflow-prometheus
+   ```
+
+2. **No data in Prometheus**
+   - Wait 15 seconds for first scrape (default scrape interval)
+   - Generate traffic to the service (register/login)
+   - Verify target is UP: http://localhost:9091/targets
+
+3. **Metrics not updating**
+   - Check time range in Prometheus UI (last 5m, 1h, etc.)
+   - Verify service is receiving requests
+   - Confirm scrape interval: 15 seconds (in `prometheus.yml`)
+
+4. **High validation request count**
+   - Frontend dashboard polls `/api/tasks` every 3 seconds
+   - Each API call validates JWT with Auth Service
+   - This is normal behavior (20 requests/minute when dashboard is open)
+
+**Prometheus Configuration:**
+- Config file: `deploy/prometheus/prometheus.yml`
+- Scrape interval: 15 seconds
+- Data retention: 15 days (default)
+- Storage: Docker volume `prometheus_data`
+
+**Documentation:**
+- Comprehensive guide: [`deploy/prometheus/PROMETHEUS_GUIDE.md`](deploy/prometheus/PROMETHEUS_GUIDE.md)
+- Auth Service metrics: [`apps/auth/METRICS.md`](apps/auth/METRICS.md)
 
 #### 2. Task Not Processing
 Check `worker-service` logs. You should see "Received task" followed by "Task completed successfully".

@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s # Scrape targets every 15 seconds
+  evaluation_interval: 15s # Evaluate rules every 15 seconds
+  external_labels:
+    cluster: 'pixelflow-local'
+    environment: 'development'
+
+# Alertmanager configuration (optional, for future use)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['pixelflow-auth:50051']
+        labels:
+          service: 'auth'
+          app: 'pixelflow'
+
+  # API Service (will be added later)
+  - job_name: 'api-service'
+    static_configs:
+      - targets: ['pixelflow-api:8080']
+        labels:
+          service: 'api'
+          app: 'pixelflow'
+
+  # Worker Service (will be added later)
+  - job_name: 'worker-service'
+    static_configs:
+      - targets: ['pixelflow-worker:8081']
+        labels:
+          service: 'worker'
+          app: 'pixelflow'
