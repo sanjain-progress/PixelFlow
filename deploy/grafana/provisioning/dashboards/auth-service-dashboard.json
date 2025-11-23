@@ -1,357 +1,355 @@
 {
-    "dashboard": {
-        "title": "Auth Service - Overview",
-        "tags": [
-            "pixelflow",
-            "auth",
-            "prometheus"
-        ],
-        "timezone": "browser",
-        "schemaVersion": 16,
-        "version": 0,
-        "refresh": "10s",
-        "panels": [
-            {
-                "id": 1,
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 0,
-                    "y": 0
-                },
-                "type": "graph",
-                "title": "Request Rate (req/sec)",
-                "targets": [
-                    {
-                        "expr": "rate(auth_requests_total[5m])",
-                        "legendFormat": "{{endpoint}} - {{method}}",
-                        "refId": "A"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "reqps",
-                        "label": "Requests/sec"
-                    },
-                    {
-                        "format": "short"
-                    }
-                ],
-                "xaxis": {
-                    "mode": "time"
-                },
-                "lines": true,
-                "fill": 1,
-                "linewidth": 2,
-                "pointradius": 5,
-                "legend": {
-                    "show": true,
-                    "values": true,
-                    "current": true
-                }
+    "title": "Auth Service - Overview",
+    "tags": [
+        "pixelflow",
+        "auth",
+        "prometheus"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "10s",
+    "panels": [
+        {
+            "id": 1,
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
             },
-            {
-                "id": 2,
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 12,
-                    "y": 0
-                },
-                "type": "graph",
-                "title": "P95 Latency",
-                "targets": [
-                    {
-                        "expr": "histogram_quantile(0.95, rate(auth_request_duration_seconds_bucket[5m]))",
-                        "legendFormat": "{{endpoint}} - P95",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "histogram_quantile(0.50, rate(auth_request_duration_seconds_bucket[5m]))",
-                        "legendFormat": "{{endpoint}} - P50",
-                        "refId": "B"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "s",
-                        "label": "Latency"
-                    },
-                    {
-                        "format": "short"
-                    }
-                ],
-                "xaxis": {
-                    "mode": "time"
-                },
-                "lines": true,
-                "fill": 1,
-                "linewidth": 2,
-                "legend": {
-                    "show": true,
-                    "values": true,
-                    "current": true
+            "type": "graph",
+            "title": "Request Rate (req/sec)",
+            "targets": [
+                {
+                    "expr": "rate(auth_requests_total[5m])",
+                    "legendFormat": "{{endpoint}} - {{method}}",
+                    "refId": "A"
                 }
-            },
-            {
-                "id": 3,
-                "gridPos": {
-                    "h": 8,
-                    "w": 8,
-                    "x": 0,
-                    "y": 8
+            ],
+            "yaxes": [
+                {
+                    "format": "reqps",
+                    "label": "Requests/sec"
                 },
-                "type": "stat",
-                "title": "Total Registrations",
-                "targets": [
-                    {
-                        "expr": "auth_registrations_total",
-                        "refId": "A"
-                    }
-                ],
-                "options": {
-                    "graphMode": "area",
-                    "colorMode": "value",
-                    "justifyMode": "auto",
-                    "textMode": "auto"
-                },
-                "fieldConfig": {
-                    "defaults": {
-                        "unit": "short",
-                        "color": {
-                            "mode": "thresholds"
-                        },
-                        "thresholds": {
-                            "mode": "absolute",
-                            "steps": [
-                                {
-                                    "value": null,
-                                    "color": "green"
-                                }
-                            ]
-                        }
-                    }
+                {
+                    "format": "short"
                 }
+            ],
+            "xaxis": {
+                "mode": "time"
             },
-            {
-                "id": 4,
-                "gridPos": {
-                    "h": 8,
-                    "w": 8,
-                    "x": 8,
-                    "y": 8
+            "lines": true,
+            "fill": 1,
+            "linewidth": 2,
+            "pointradius": 5,
+            "legend": {
+                "show": true,
+                "values": true,
+                "current": true
+            }
+        },
+        {
+            "id": 2,
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 0
+            },
+            "type": "graph",
+            "title": "P95 Latency",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, rate(auth_request_duration_seconds_bucket[5m]))",
+                    "legendFormat": "{{endpoint}} - P95",
+                    "refId": "A"
                 },
-                "type": "graph",
-                "title": "Login Success Rate (%)",
-                "targets": [
-                    {
-                        "expr": "sum(rate(auth_logins_total{status=\"success\"}[5m])) / sum(rate(auth_logins_total[5m])) * 100",
-                        "legendFormat": "Success Rate",
-                        "refId": "A"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "percent",
-                        "label": "Success Rate",
-                        "min": 0,
-                        "max": 100
-                    },
-                    {
-                        "format": "short"
-                    }
-                ],
-                "xaxis": {
-                    "mode": "time"
-                },
-                "lines": true,
-                "fill": 2,
-                "linewidth": 2,
-                "legend": {
-                    "show": true
+                {
+                    "expr": "histogram_quantile(0.50, rate(auth_request_duration_seconds_bucket[5m]))",
+                    "legendFormat": "{{endpoint}} - P50",
+                    "refId": "B"
                 }
-            },
-            {
-                "id": 5,
-                "gridPos": {
-                    "h": 8,
-                    "w": 8,
-                    "x": 16,
-                    "y": 8
+            ],
+            "yaxes": [
+                {
+                    "format": "s",
+                    "label": "Latency"
                 },
-                "type": "graph",
-                "title": "Token Validations",
-                "targets": [
-                    {
-                        "expr": "rate(auth_token_validations_total{status=\"valid\"}[5m])",
-                        "legendFormat": "Valid",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "rate(auth_token_validations_total{status=\"invalid\"}[5m])",
-                        "legendFormat": "Invalid",
-                        "refId": "B"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "reqps",
-                        "label": "Validations/sec"
-                    },
-                    {
-                        "format": "short"
-                    }
-                ],
-                "xaxis": {
-                    "mode": "time"
-                },
-                "lines": true,
-                "fill": 1,
-                "linewidth": 2,
-                "legend": {
-                    "show": true,
-                    "values": true,
-                    "current": true
+                {
+                    "format": "short"
                 }
+            ],
+            "xaxis": {
+                "mode": "time"
             },
-            {
-                "id": 6,
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 0,
-                    "y": 16
-                },
-                "type": "graph",
-                "title": "Login Attempts",
-                "targets": [
-                    {
-                        "expr": "rate(auth_logins_total{status=\"success\"}[5m])",
-                        "legendFormat": "Success",
-                        "refId": "A"
-                    },
-                    {
-                        "expr": "rate(auth_logins_total{status=\"failure\"}[5m])",
-                        "legendFormat": "Failure",
-                        "refId": "B"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "reqps",
-                        "label": "Logins/sec"
-                    },
-                    {
-                        "format": "short"
-                    }
-                ],
-                "xaxis": {
-                    "mode": "time"
-                },
-                "lines": true,
-                "fill": 1,
-                "linewidth": 2,
-                "seriesOverrides": [
-                    {
-                        "alias": "Failure",
-                        "color": "#F2495C"
-                    }
-                ],
-                "legend": {
-                    "show": true,
-                    "values": true,
-                    "current": true
+            "lines": true,
+            "fill": 1,
+            "linewidth": 2,
+            "legend": {
+                "show": true,
+                "values": true,
+                "current": true
+            }
+        },
+        {
+            "id": 3,
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 8
+            },
+            "type": "stat",
+            "title": "Total Registrations",
+            "targets": [
+                {
+                    "expr": "auth_registrations_total",
+                    "refId": "A"
                 }
+            ],
+            "options": {
+                "graphMode": "area",
+                "colorMode": "value",
+                "justifyMode": "auto",
+                "textMode": "auto"
             },
-            {
-                "id": 7,
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 12,
-                    "y": 16
-                },
-                "type": "graph",
-                "title": "Error Rate",
-                "targets": [
-                    {
-                        "expr": "rate(auth_requests_total{status=~\"4..|5..\"}[5m])",
-                        "legendFormat": "{{status}} - {{endpoint}}",
-                        "refId": "A"
-                    }
-                ],
-                "yaxes": [
-                    {
-                        "format": "reqps",
-                        "label": "Errors/sec"
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "color": {
+                        "mode": "thresholds"
                     },
-                    {
-                        "format": "short"
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "value": null,
+                                "color": "green"
+                            }
+                        ]
                     }
-                ],
-                "xaxis": {
-                    "mode": "time"
-                },
-                "lines": true,
-                "fill": 1,
-                "linewidth": 2,
-                "alert": {
-                    "conditions": [
-                        {
-                            "evaluator": {
-                                "params": [
-                                    5
-                                ],
-                                "type": "gt"
-                            },
-                            "operator": {
-                                "type": "and"
-                            },
-                            "query": {
-                                "params": [
-                                    "A",
-                                    "5m",
-                                    "now"
-                                ]
-                            },
-                            "reducer": {
-                                "params": [],
-                                "type": "avg"
-                            },
-                            "type": "query"
-                        }
-                    ],
-                    "executionErrorState": "alerting",
-                    "frequency": "1m",
-                    "handler": 1,
-                    "name": "High Error Rate",
-                    "noDataState": "no_data",
-                    "notifications": []
-                },
-                "legend": {
-                    "show": true,
-                    "values": true,
-                    "current": true
                 }
             }
-        ],
-        "time": {
-            "from": "now-1h",
-            "to": "now"
         },
-        "timepicker": {
-            "refresh_intervals": [
-                "5s",
-                "10s",
-                "30s",
-                "1m",
-                "5m",
-                "15m",
-                "30m",
-                "1h",
-                "2h",
-                "1d"
-            ]
+        {
+            "id": 4,
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 8,
+                "y": 8
+            },
+            "type": "graph",
+            "title": "Login Success Rate (%)",
+            "targets": [
+                {
+                    "expr": "sum(rate(auth_logins_total{status=\"success\"}[5m])) / sum(rate(auth_logins_total[5m])) * 100",
+                    "legendFormat": "Success Rate",
+                    "refId": "A"
+                }
+            ],
+            "yaxes": [
+                {
+                    "format": "percent",
+                    "label": "Success Rate",
+                    "min": 0,
+                    "max": 100
+                },
+                {
+                    "format": "short"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "lines": true,
+            "fill": 2,
+            "linewidth": 2,
+            "legend": {
+                "show": true
+            }
+        },
+        {
+            "id": 5,
+            "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 16,
+                "y": 8
+            },
+            "type": "graph",
+            "title": "Token Validations",
+            "targets": [
+                {
+                    "expr": "rate(auth_token_validations_total{status=\"valid\"}[5m])",
+                    "legendFormat": "Valid",
+                    "refId": "A"
+                },
+                {
+                    "expr": "rate(auth_token_validations_total{status=\"invalid\"}[5m])",
+                    "legendFormat": "Invalid",
+                    "refId": "B"
+                }
+            ],
+            "yaxes": [
+                {
+                    "format": "reqps",
+                    "label": "Validations/sec"
+                },
+                {
+                    "format": "short"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "lines": true,
+            "fill": 1,
+            "linewidth": 2,
+            "legend": {
+                "show": true,
+                "values": true,
+                "current": true
+            }
+        },
+        {
+            "id": 6,
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 16
+            },
+            "type": "graph",
+            "title": "Login Attempts",
+            "targets": [
+                {
+                    "expr": "rate(auth_logins_total{status=\"success\"}[5m])",
+                    "legendFormat": "Success",
+                    "refId": "A"
+                },
+                {
+                    "expr": "rate(auth_logins_total{status=\"failure\"}[5m])",
+                    "legendFormat": "Failure",
+                    "refId": "B"
+                }
+            ],
+            "yaxes": [
+                {
+                    "format": "reqps",
+                    "label": "Logins/sec"
+                },
+                {
+                    "format": "short"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "lines": true,
+            "fill": 1,
+            "linewidth": 2,
+            "seriesOverrides": [
+                {
+                    "alias": "Failure",
+                    "color": "#F2495C"
+                }
+            ],
+            "legend": {
+                "show": true,
+                "values": true,
+                "current": true
+            }
+        },
+        {
+            "id": 7,
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 16
+            },
+            "type": "graph",
+            "title": "Error Rate",
+            "targets": [
+                {
+                    "expr": "rate(auth_requests_total{status=~\"4..|5..\"}[5m])",
+                    "legendFormat": "{{status}} - {{endpoint}}",
+                    "refId": "A"
+                }
+            ],
+            "yaxes": [
+                {
+                    "format": "reqps",
+                    "label": "Errors/sec"
+                },
+                {
+                    "format": "short"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "lines": true,
+            "fill": 1,
+            "linewidth": 2,
+            "alert": {
+                "conditions": [
+                    {
+                        "evaluator": {
+                            "params": [
+                                5
+                            ],
+                            "type": "gt"
+                        },
+                        "operator": {
+                            "type": "and"
+                        },
+                        "query": {
+                            "params": [
+                                "A",
+                                "5m",
+                                "now"
+                            ]
+                        },
+                        "reducer": {
+                            "params": [],
+                            "type": "avg"
+                        },
+                        "type": "query"
+                    }
+                ],
+                "executionErrorState": "alerting",
+                "frequency": "1m",
+                "handler": 1,
+                "name": "High Error Rate",
+                "noDataState": "no_data",
+                "notifications": []
+            },
+            "legend": {
+                "show": true,
+                "values": true,
+                "current": true
+            }
         }
+    ],
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {
+        "refresh_intervals": [
+            "5s",
+            "10s",
+            "30s",
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "1d"
+        ]
     }
 }
