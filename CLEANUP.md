@@ -119,3 +119,13 @@ Now ignores:
 ---
 
 **Status:** Project is now clean, focused, and production-ready! 🚀
+
+## Recent Cleanup (2025-11-23)
+
+### Additional Files Removed
+- ❌ `frontend/` - Abandoned Vite setup attempt (only contained `.vite` directory)
+- ❌ `.DS_Store` files - macOS system files throughout the project
+
+### Updated Files
+- ✅ `.gitignore` - Added `frontend/` to prevent future clutter, fixed typo
+- ✅ All services verified working after cleanup via E2E tests

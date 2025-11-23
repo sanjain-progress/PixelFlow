@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -26,27 +25,36 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+	// Initialize Structured Logger (JSON)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	// Configuration
 	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017")
 	kafkaBrokers := strings.Split(getEnv("KAFKA_BROKERS", "kafka:29092"), ",")
 	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:50051")
 	port := getEnv("PORT", "8080")
 
+	slog.Info("Starting API Service", "port", port, "kafka_brokers", kafkaBrokers)
+
 	// 1. Initialize MongoDB
 	// Connect to the 'pixelflow' database
 	dbHandler := db.Init(mongoURL, "pixelflow")
 	taskCollection := dbHandler.DB.Collection("tasks")
+	slog.Info("Connected to MongoDB", "db", "pixelflow")
 
 	// 2. Initialize Kafka Producer
 	// Connect to Kafka broker and topic 'image-tasks'
 	kafkaProducer := kafka.NewProducer(kafkaBrokers, "image-tasks")
 	defer kafkaProducer.Close()
+	slog.Info("Connected to Kafka Producer", "topic", "image-tasks")
 
 	// 3. Initialize Auth Middleware
 	// Connect to Auth Service gRPC server
 	authMiddleware, err := middleware.NewAuthMiddleware(authServiceURL)
 	if err != nil {
-		log.Fatalln("Failed to connect to Auth Service:", err)
+		slog.Error("Failed to connect to Auth Service", "error", err)
+		os.Exit(1)
 	}
 
 	// 4. Setup Router
@@ -86,6 +94,7 @@ func main() {
 				ImageURL string `json:"image_url" binding:"required"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
+				slog.Warn("Upload: Invalid request", "error", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
@@ -103,6 +112,7 @@ func main() {
 			// Save to MongoDB
 			_, err := taskCollection.InsertOne(context.Background(), task)
 			if err != nil {
+				slog.Error("Upload: Failed to save task", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
 				return
 			}
@@ -115,7 +125,9 @@ func main() {
 			})
 			if err != nil {
 				// Note: In production, we might want to rollback the DB insert or retry
-				log.Println("Failed to publish to Kafka:", err)
+				slog.Error("Upload: Failed to publish to Kafka", "error", err)
+			} else {
+				slog.Info("Task published to Kafka", "task_id", task.ID.Hex())
 			}
 
 			c.JSON(http.StatusCreated, task)
@@ -128,6 +140,7 @@ func main() {
 			// Find tasks for this user
 			cursor, err := taskCollection.Find(context.Background(), bson.M{"user_id": userID})
 			if err != nil {
+				slog.Error("ListTasks: DB Query failed", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
 				return
 			}
@@ -135,6 +148,7 @@ func main() {
 
 			var tasks []models.Task
 			if err = cursor.All(context.Background(), &tasks); err != nil {
+				slog.Error("ListTasks: Decode failed", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode tasks"})
 				return
 			}
@@ -144,6 +158,8 @@ func main() {
 	}
 
 	// 5. Start Server
-	fmt.Printf("API Service running on :%s\n", port)
-	r.Run(":" + port)
+	slog.Info("API Service listening", "address", ":"+port)
+	if err := r.Run(":" + port); err != nil {
+		slog.Error("Failed to start server", "error", err)
+	}
 }

@@ -1,5 +1,6 @@
 node_modules/
-d# Binaries and build artifacts
+
+# Binaries and build artifacts
 bin/
 *.exe
 *.dll
@@ -39,4 +40,5 @@ temp/
 proto/
 pkg/
 verify_*.sh
+frontend/
 apps/*/client/vscode/

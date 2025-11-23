@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -20,13 +20,20 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+	// Initialize Structured Logger (JSON)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	// Configuration
 	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017")
 	kafkaBrokers := strings.Split(getEnv("KAFKA_BROKERS", "localhost:9093"), ",")
 
+	slog.Info("Starting Worker Service", "kafka_brokers", kafkaBrokers)
+
 	// 1. Initialize MongoDB
 	// Use the same DB as the API service
 	dbHandler := db.Init(mongoURL, "pixelflow")
+	slog.Info("Connected to MongoDB")
 
 	// 2. Initialize Processor
 	proc := processor.NewProcessor(dbHandler.DB)
@@ -39,13 +46,22 @@ func main() {
 		"worker-group-1",
 	)
 	defer consumer.Close()
+	slog.Info("Kafka Consumer initialized", "topic", "image-tasks", "group", "worker-group-1")
 
 	// 4. Start Consuming
 	// The handler function is called for each message
+	slog.Info("Worker started consuming messages...")
 	consumer.Consume(context.Background(), func(event kafka.TaskEvent) error {
-		fmt.Printf("Worker received task: %s\n", event.TaskID)
-		
+		slog.Info("Received task", "task_id", event.TaskID, "user_id", event.UserID)
+
 		// Process the image
-		return proc.ProcessImage(event.TaskID)
+		err := proc.ProcessImage(event.TaskID)
+		if err != nil {
+			slog.Error("Failed to process task", "task_id", event.TaskID, "error", err)
+			return err
+		}
+
+		slog.Info("Task completed successfully", "task_id", event.TaskID)
+		return nil
 	})
 }

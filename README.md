@@ -343,7 +343,49 @@ docker exec pixelflow-kafka kafka-console-consumer \
 - [x] Health checks
 - [x] Structured logging
 
-##  Troubleshooting & Debugging
+## 🔍 Observability & Troubleshooting
+
+### Structured Logging
+All services output logs in **JSON format** (Structured Logging) for easy parsing and monitoring.
+
+### Viewing Logs
+Use the following commands to view logs for each service:
+
+```bash
+# Auth Service (User registration/login)
+docker-compose logs -f auth-service
+
+# API Service (Task creation/listing)
+docker-compose logs -f api-service
+
+# Worker Service (Task processing)
+docker-compose logs -f worker-service
+
+# Frontend (Web server)
+docker-compose logs -f frontend
+```
+
+### Common Debugging Scenarios
+
+#### 1. Registration Fails
+Check `auth-service` logs for "Register: User already exists" or database errors.
+```bash
+docker-compose logs --tail=50 auth-service | grep "Register"
+```
+
+#### 2. Task Not Processing
+Check `worker-service` logs. You should see "Received task" followed by "Task completed successfully".
+```bash
+docker-compose logs -f worker-service
+```
+
+#### 3. API Errors
+Check `api-service` logs for "Upload: Failed" or middleware errors.
+```bash
+docker-compose logs -f api-service
+```
+
+### Troubleshooting & Debugging
 
 ### Common Issues and Solutions
 

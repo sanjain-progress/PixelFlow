@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -20,15 +20,25 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+	// Initialize Structured Logger (JSON)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	// Load Configuration
 	dbURL := getEnv("DATABASE_URL", "postgres://postgres:password@localhost:5432/auth_db?sslmode=disable")
 	port := getEnv("PORT", "50051")
 
+	slog.Info("Starting Auth Service", "port", port)
+
+	// Initialize Database Connection
 	h := db.Init(dbURL)
 
 	// Setup Gin HTTP server
+	// Gin's default logger is replaced by our structured logger via middleware (optional, keeping default for now)
 	r := gin.Default()
 
 	// CORS Middleware
+	// Allows frontend (localhost:3000) to communicate with this service
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -43,7 +53,8 @@ func main() {
 		c.Next()
 	})
 
-	// Register endpoint
+	// POST /register
+	// Creates a new user account with hashed password
 	r.POST("/register", func(c *gin.Context) {
 		var req struct {
 			Email    string `json:"email" binding:"required"`
@@ -51,6 +62,7 @@ func main() {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
+			slog.Warn("Register: Invalid request body", "error", err)
 			c.JSON(400, gin.H{"error": "Invalid request"})
 			return
 		}
@@ -58,6 +70,7 @@ func main() {
 		// Check if user exists
 		var existing models.User
 		if err := h.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
+			slog.Warn("Register: User already exists", "email", req.Email)
 			c.JSON(400, gin.H{"error": "User already exists"})
 			return
 		}
@@ -65,6 +78,7 @@ func main() {
 		// Hash password
 		hashedPw, err := utils.HashPassword(req.Password)
 		if err != nil {
+			slog.Error("Register: Failed to hash password", "error", err)
 			c.JSON(500, gin.H{"error": "Failed to hash password"})
 			return
 		}
@@ -76,14 +90,17 @@ func main() {
 		}
 
 		if err := h.DB.Create(&user).Error; err != nil {
+			slog.Error("Register: Failed to create user in DB", "error", err)
 			c.JSON(500, gin.H{"error": "Failed to create user"})
 			return
 		}
 
+		slog.Info("User registered successfully", "email", req.Email, "user_id", user.ID)
 		c.JSON(200, gin.H{"message": "User registered successfully"})
 	})
 
-	// Login endpoint
+	// POST /login
+	// Authenticates user and returns JWT token
 	r.POST("/login", func(c *gin.Context) {
 		var req struct {
 			Email    string `json:"email" binding:"required"`
@@ -91,6 +108,7 @@ func main() {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
+			slog.Warn("Login: Invalid request body", "error", err)
 			c.JSON(400, gin.H{"error": "Invalid request"})
 			return
 		}
@@ -98,12 +116,14 @@ func main() {
 		// Find user
 		var user models.User
 		if err := h.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+			slog.Warn("Login: User not found", "email", req.Email)
 			c.JSON(401, gin.H{"error": "Invalid credentials"})
 			return
 		}
 
 		// Check password
 		if !utils.CheckPasswordHash(req.Password, user.Password) {
+			slog.Warn("Login: Invalid password", "email", req.Email)
 			c.JSON(401, gin.H{"error": "Invalid credentials"})
 			return
 		}
@@ -111,14 +131,17 @@ func main() {
 		// Generate JWT
 		token, err := utils.GenerateJWT(fmt.Sprintf("%d", user.ID))
 		if err != nil {
+			slog.Error("Login: Failed to generate token", "error", err)
 			c.JSON(500, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
+		slog.Info("User logged in successfully", "email", req.Email, "user_id", user.ID)
 		c.JSON(200, gin.H{"token": token})
 	})
 
-	// Validate endpoint
+	// GET /validate
+	// Validates JWT token and returns user ID
 	r.GET("/validate", func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -135,6 +158,7 @@ func main() {
 		token := parts[1]
 		userID, err := utils.ValidateJWT(token)
 		if err != nil {
+			slog.Warn("Validate: Invalid token", "error", err)
 			c.JSON(401, gin.H{"valid": false})
 			return
 		}
@@ -142,8 +166,9 @@ func main() {
 		c.JSON(200, gin.H{"valid": true, "user_id": userID})
 	})
 
-	fmt.Printf("Auth Service (HTTP) running on :%s\n", port)
+	slog.Info("Auth Service listening", "address", ":"+port)
 	if err := r.Run(":" + port); err != nil {
-		log.Fatal(err)
+		slog.Error("Failed to start server", "error", err)
+		os.Exit(1)
 	}
 }
