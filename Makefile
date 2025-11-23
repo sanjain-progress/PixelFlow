@@ -162,4 +162,14 @@ dev-api:
 	cd apps/api && go run cmd/main.go
 
 dev-worker:
-	cd apps/worker && go run cmd/main.goown
+	cd apps/worker && go run cmd/main.go
+
+# Frontend helpers
+install-frontend:
+	cd apps/frontend && npm install
+
+dev-frontend:
+	cd apps/frontend && npm start
+
+build-frontend:
+	cd apps/frontend && npm run build

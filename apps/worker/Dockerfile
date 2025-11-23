@@ -13,7 +13,7 @@ RUN rm -f go.work go.work.sum
 WORKDIR /app/apps/worker
 RUN go mod download
 RUN go mod tidy
-RUN CGO_ENABLED=0 go build -o worker-service cmd/main.go
+RUN CGO_ENABLED=0 go build -o worker-service ./cmd/main.go
 
 # Run Stage
 FROM alpine:latest

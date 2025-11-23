@@ -10,44 +10,57 @@ PixelFlow is a production-style distributed application for asynchronous image p
 ### High-Level Design (HTTP + Event-Driven)
 
 ```
-┌──────────┐       HTTP        ┌──────────┐       HTTP        ┌──────────┐
-│  Client  │ ────────────────▶ │   API    │ ────────────────▶ │   Auth   │
-└──────────┘                   │ Service  │                   │ Service  │
-                               └────┬─────┘                   └──────────┘
-                                    │                               │
-                                    │                               ▼
-                                    │                         ┌──────────┐
-                                    │                         │PostgreSQL│
-                                    │                         │  (Users) │
-                                    ▼                         └──────────┘
-                              ┌──────────┐
-                              │  MongoDB │
-                              │  (Tasks) │
-                              └──────────┘
-                                    │
-                                    ▼
-                              ┌──────────┐
-                              │  Kafka   │
-                              │ (Events) │
-                              └────┬─────┘
-                                   │
-                                   │ Subscribe
-                                   ▼
-                             ┌──────────┐
-                             │  Worker  │
-                             │ Service  │
-                             └────┬─────┘
-                                  │
-                                  ▼
-                            ┌──────────┐
-                            │  MongoDB │
-                            │ (Update) │
-                            └──────────┘
+┌──────────┐       HTTP       ┌──────────┐       HTTP        ┌──────────┐       HTTP        ┌──────────┐
+│   User   │ ───────────────▶ │ Frontend │ ────────────────▶ │   API    │ ────────────────▶ │   Auth   │
+│ (Browser)│                  │ Service  │                   │ Service  │                   │ Service  │
+└──────────┘                  └──────────┘                   └────┬─────┘                   └──────────┘
+                                                                  │                               │
+                                                                  │                               ▼
+                                                                  │                         ┌──────────┐
+                                                                  │                         │PostgreSQL│
+                                                                  │                         │  (Users) │
+                                                                  ▼                         └──────────┘
+                                                            ┌──────────┐
+                                                            │  MongoDB │
+                                                            │  (Tasks) │
+                                                            └──────────┘
+                                                                  │
+                                                                  ▼
+                                                            ┌──────────┐
+                                                            │  Kafka   │
+                                                            │ (Events) │
+                                                            └────┬─────┘
+                                                                 │
+                                                                 │ Subscribe
+                                                                 ▼
+                                                           ┌──────────┐
+                                                           │  Worker  │
+                                                           │ Service  │
+                                                           └────┬─────┘
+                                                                 │
+                                                                 ▼
+                                                           ┌──────────┐
+                                                           │  MongoDB │
+                                                           │ (Update) │
+                                                           └──────────┘
 ```
 
 ## Services
 
-### 1. Auth Service (HTTP)
+### 1. Frontend Service (UI)
+**Purpose**: User Interface for the application
+**Port**: 3000
+**Type**: Single Page Application (SPA)
+**Tech Stack**: React, TailwindCSS, Nginx (Docker)
+
+**Features**:
+- User Registration & Login pages
+- Dashboard for task management
+- Image URL upload form
+- Real-time task status updates (Polling)
+- Protected route management (JWT)
+
+### 2. Auth Service (HTTP)
 **Purpose**: User authentication and JWT token management  
 **Port**: 50051  
 **Protocol**: HTTP REST  
@@ -64,7 +77,7 @@ PixelFlow is a production-style distributed application for asynchronous image p
 - JWT for token generation
 - bcrypt for password hashing
 
-### 2. API Service (HTTP)
+### 3. API Service (HTTP)
 **Purpose**: REST API for task management  
 **Port**: 8080  
 **Protocol**: HTTP REST  
@@ -83,7 +96,7 @@ PixelFlow is a production-style distributed application for asynchronous image p
 - Kafka producer for event publishing
 - HTTP client for auth validation
 
-### 3. Worker Service (Background)
+### 4. Worker Service (Background)
 **Purpose**: Asynchronous image processing  
 **Protocol**: Kafka consumer  
 **Databases**: MongoDB (task updates)
@@ -157,6 +170,7 @@ Returns tasks with current status
 ## Infrastructure (Docker)
 
 All services run in Docker containers:
+- `pixelflow-frontend` - React Frontend (Nginx)
 - `pixelflow-auth` - Auth Service
 - `pixelflow-api` - API Service  
 - `pixelflow-worker` - Worker Service
@@ -186,6 +200,9 @@ make up
 # Check status
 make ps
 
+# Access UI
+# Open http://localhost:3000
+
 # Run E2E tests
 make test
 
@@ -201,6 +218,7 @@ For all available commands, run `make help`.
 
 ## Verified Features ✅
 
+- ✅ **Frontend UI**: Login, Register, Dashboard, Task Upload
 - ✅ User registration and authentication
 - ✅ JWT token generation and validation  
 - ✅ Protected API endpoints

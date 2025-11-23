@@ -98,12 +98,27 @@ services:
       context: .
       dockerfile: apps/worker/Dockerfile
     container_name: pixelflow-worker
-    environment:
-      MONGO_URL: mongodb://mongo:27017
-      KAFKA_BROKERS: kafka:29092
     depends_on:
-      - mongo
       - kafka
+      - mongo
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - MONGO_URL=mongodb://mongo:27017
+      - GROUP_ID=worker-group-1
+    networks:
+      - pixelflow-net
+
+  frontend:
+    build: ./apps/frontend
+    container_name: pixelflow-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-service
+      - auth-service
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+      - REACT_APP_AUTH_URL=http://localhost:50051
     networks:
       - pixelflow-net
 

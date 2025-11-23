@@ -19,49 +19,49 @@ pixelflow/                  # Root of the repository
 ├── Makefile                # Master makefile (build, run, test all)
 ├── docker-compose.yml      # Run everything locally (Kafka, Mongo, Postgres, Apps)
 ├── README.md               # Project documentation
-├── .github/                # GitHub Actions (CI/CD)
+├── distributed_app_design.md # Architecture documentation
+├── test_e2e.sh             # End-to-End test script
 │
 ├── apps/                   # The source code for your services
-│   ├── auth/               # Auth Service (Go + gRPC)
+│   ├── auth/               # Auth Service (Go + HTTP REST)
 │   │   ├── cmd/            # Main entrypoint
-│   │   ├── internal/       # Business logic
+│   │   ├── internal/       # Business logic (db, models, utils)
 │   │   ├── Dockerfile
-│   │   └── go.mod
+│   │   ├── go.mod
+│   │   └── IMPLEMENTATION.md
 │   │
-│   ├── api/                # API Service (Go + HTTP)
+│   ├── api/                # API Service (Go + HTTP REST)
 │   │   ├── cmd/
-│   │   ├── internal/
+│   │   ├── internal/       # Business logic (db, models, kafka, middleware)
 │   │   ├── Dockerfile
-│   │   └── go.mod
+│   │   ├── go.mod
+│   │   └── IMPLEMENTATION.md
 │   │
 │   ├── worker/             # Worker Service (Go + Kafka Consumer)
 │   │   ├── cmd/
-│   │   ├── internal/
+│   │   ├── internal/       # Business logic (db, models, processor)
 │   │   ├── Dockerfile
-│   │   └── go.mod
+│   │   ├── go.mod
+│   │   └── IMPLEMENTATION.md
 │   │
-│   └── frontend/           # React App (Vite)
-│       ├── src/
+│   └── frontend/           # Frontend UI (React + TailwindCSS)
+│       ├── src/            # React source code
+│       ├── public/
 │       ├── package.json
-│       └── Dockerfile
+│       ├── Dockerfile
+│       ├── nginx.conf
+│       └── IMPLEMENTATION.md
 │
-├── pkg/                    # Shared Go Code (Libraries)
-│   ├── pb/                 # Generated Protobuf Go code (shared between Auth & API)
-│   └── logger/             # Common logging setup
-│
-├── proto/                  # Protocol Buffer Definitions
-│   └── auth.proto          # The contract between API and Auth
-│
-└── deploy/                 # Infrastructure as Code
+└── deploy/                 # Infrastructure as Code (Future)
     ├── k8s/                # Kubernetes Manifests
     └── helm/               # Helm Charts
 ```
 
 ## 3. How it works
-1.  **`apps/`**: Each folder here is effectively a "microservice". They have their own `go.mod` (or we can use a workspace `go.work` file in the root).
-2.  **`pkg/`**: This is the magic of the monorepo. The `auth` service and `api` service can both import `github.com/yourname/pixelflow/pkg/pb`.
+1.  **`apps/`**: Each folder here is a self-contained service. They have their own `go.mod` and internal packages (`internal/`) to ensure loose coupling.
+2.  **`frontend/`**: The React application that interacts with the API service.
 3.  **`deploy/`**: Keeps your infrastructure separate from your code.
 
 ## 4. Summary
 -   **Repositories to create**: **1** (Just `pixelflow`).
--   **Complexity**: Low overhead, high velocity.
+-   **Architecture**: Monorepo with independent, decoupled services.

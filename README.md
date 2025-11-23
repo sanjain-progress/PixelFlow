@@ -10,7 +10,7 @@
 
 PixelFlow is a fully functional distributed system for asynchronous image processing, built with Go microservices, Kafka event streaming, and multiple databases. The application demonstrates:
 
-- ✅ **Microservices Architecture** - 3 independent services (Auth, API, Worker)
+- ✅ **Microservices Architecture** - 4 independent services (Frontend, Auth, API, Worker)
 - ✅ **Event-Driven Design** - Kafka for async task processing
 - ✅ **HTTP REST APIs** - Modern REST endpoints with JWT authentication
 - ✅ **Polyglot Persistence** - PostgreSQL + MongoDB
@@ -20,22 +20,21 @@ PixelFlow is a fully functional distributed system for asynchronous image proces
 ## 🏗️ Architecture
 
 ```
-Client (curl/Postman)
-     ↓ HTTP
+User (Browser)
+     ↓ HTTP :3000
 ┌──────────────────┐
-│   API Service    │ :8080
-│  (Gin + JWT)     │
+│ Frontend Service │
+│ (React + Nginx)  │
 └────┬─────────────┘
-     │ validates JWT via HTTP
+     │ HTTP calls
      ↓
-┌──────────────────┐
-│  Auth Service    │ :50051
-│  (User Auth)     │
-└──────────────────┘
-     │ PostgreSQL
-     
-API Service
-     ↓ publishes event
+┌──────────────────┐       ┌──────────────────┐
+│   API Service    │ ────▶ │  Auth Service    │
+│  (Gin + JWT)     │ :8080 │  (User Auth)     │ :50051
+└────┬─────────────┘       └──────────────────┘
+     │ validates JWT            │ PostgreSQL
+     │ publishes event          
+     ↓
 ┌──────────────────┐
 │      Kafka       │ :9093
 │  (image-tasks)   │
@@ -71,6 +70,9 @@ make up
 # Verify services are running
 make ps
 
+# Access the UI
+# Open http://localhost:3000
+
 # Run end-to-end tests
 make test
 
@@ -91,6 +93,7 @@ make health        # Check service health
 make clean         # Stop and remove all data (⚠️ destructive)
 
 # Service-specific logs
+make logs-frontend # Frontend logs
 make logs-auth     # Auth service logs
 make logs-api      # API service logs
 make logs-worker   # Worker service logs
@@ -117,6 +120,13 @@ make kafka-groups    # Show consumer groups
 ```
 
 ## 📦 Services
+
+### Frontend Service (Port 3000)
+**User Interface**
+
+- React SPA with TailwindCSS
+- Dashboard for task management
+- Real-time status updates
 
 ### Auth Service (Port 50051)
 **User authentication and JWT management**
@@ -188,9 +198,12 @@ curl -X GET http://localhost:8080/api/tasks \
 │   ├── api/            # API Service (HTTP)
 │   │   ├── cmd/
 │   │   └── internal/   # Middleware, Kafka, Models
-│   └── worker/         # Worker Service
-│       ├── cmd/
-│       └── internal/   # Kafka Consumer, Processor
+│   ├── worker/         # Worker Service
+│   │   ├── cmd/
+│   │   └── internal/   # Kafka Consumer, Processor
+│   └── frontend/       # Frontend UI
+│       ├── src/        # React Components & Pages
+│       └── public/
 ├── docker-compose.yml  # All services orchestration
 ├── test_e2e.sh        # End-to-end test script
 └── README.md
@@ -215,6 +228,10 @@ go run cmd/main.go
 # Terminal 4: Run Worker Service
 cd apps/worker
 go run cmd/main.go
+
+# Terminal 5: Run Frontend
+cd apps/frontend
+npm start
 ```
 
 ### View Logs
@@ -227,6 +244,7 @@ docker-compose logs -f
 docker-compose logs -f worker-service
 docker-compose logs -f api-service
 docker-compose logs -f auth-service
+docker-compose logs -f frontend
 ```
 
 ### Stop Services
@@ -302,6 +320,7 @@ docker exec pixelflow-kafka kafka-console-consumer \
 | Component | Technology |
 |-----------|-----------|
 | **Language** | Go 1.21+ |
+| **Frontend** | React 18, TailwindCSS |
 | **API Framework** | Gin |
 | **Auth Database** | PostgreSQL 15 |
 | **Task Database** | MongoDB 6.0 |
@@ -311,6 +330,7 @@ docker exec pixelflow-kafka kafka-console-consumer \
 
 ## ✅ Verified Features
 
+- [x] **Frontend UI**: Login, Register, Dashboard, Task Upload
 - [x] User registration with password hashing (bcrypt)
 - [x] JWT-based authentication
 - [x] Protected API endpoints with middleware
@@ -323,7 +343,7 @@ docker exec pixelflow-kafka kafka-console-consumer \
 - [x] Health checks
 - [x] Structured logging
 
-## � Troubleshooting & Debugging
+##  Troubleshooting & Debugging
 
 ### Common Issues and Solutions
 
@@ -336,6 +356,7 @@ docker exec pixelflow-kafka kafka-console-consumer \
 lsof -ti:8080   # API port
 lsof -ti:50051  # Auth port
 lsof -ti:27017  # MongoDB port
+lsof -ti:3000   # Frontend port
 ```
 
 **Solution**:
@@ -483,7 +504,7 @@ docker exec -it pixelflow-postgres-auth psql -U postgres -d auth_db
 \dt                                  # List tables
 SELECT * FROM users;                 # Query users
 
-# MongoDB
+# === MongoDB ===
 docker exec -it pixelflow-mongo mongosh
 # Inside mongosh:
 use pixelflow                        # Switch to pixelflow DB
@@ -572,7 +593,7 @@ docker system prune                  # Clean up unused resources
 ✅ **Use the E2E test script**: `./test_e2e.sh` validates the full workflow  
 ✅ **Keep it simple**: HTTP REST is easier to debug than gRPC for learning projects
 
-## �🚧 Future Enhancements
+## 🚧 Future Enhancements
 
 - [ ] Add Prometheus metrics
 - [ ] Implement Grafana dashboards
@@ -580,7 +601,6 @@ docker system prune                  # Clean up unused resources
 - [ ] Implement retry logic with DLQ
 - [ ] Add rate limiting (Redis)
 - [ ] WebSocket for real-time updates
-- [ ] Frontend UI (React)
 - [ ] Kubernetes deployment
 - [ ] CI/CD pipeline
 
