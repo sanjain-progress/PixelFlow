@@ -16,14 +16,14 @@ func HashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-// CheckPassword compares a hashed password with a plain text password.
-func CheckPassword(password, hash string) bool {
+// CheckPasswordHash compares a hashed password with a plain text password.
+func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
 
-// GenerateToken generates a JWT token for a user.
-func GenerateToken(userID uint) (string, error) {
+// GenerateJWT generates a JWT token for a user.
+func GenerateJWT(userID string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"exp":     time.Now().Add(time.Hour * 24).Unix(), // 24 hours
@@ -33,8 +33,8 @@ func GenerateToken(userID uint) (string, error) {
 	return token.SignedString(SecretKey)
 }
 
-// ValidateToken parses and validates a JWT token.
-func ValidateToken(tokenString string) (uint, error) {
+// ValidateJWT parses and validates a JWT token.
+func ValidateJWT(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -43,13 +43,13 @@ func ValidateToken(tokenString string) (uint, error) {
 	})
 
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userID := uint(claims["user_id"].(float64))
+		userID := claims["user_id"].(string)
 		return userID, nil
 	}
 
-	return 0, errors.New("invalid token")
+	return "", errors.New("invalid token")
 }

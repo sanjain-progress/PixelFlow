@@ -1,134 +1,239 @@
-# PixelFlow: Distributed Image Processing Pipeline
+# PixelFlow - Distributed Image Processing Application
 
-## 1. Project Idea
-**PixelFlow** is a distributed system where users upload images to be processed (resized, filtered, watermarked) asynchronously. It mimics real-world heavy processing jobs.
+## Overview
+PixelFlow is a production-style distributed application for asynchronous image processing, built to demonstrate modern backend, cloud-native, and microservices patterns.
 
-**Why this fits:**
-- **Microservices**: Separate **Auth**, **API (Gateway/Task)**, and **Worker** services.
-- **Inter-Service Comm**: **gRPC** for synchronous calls (API -> Auth), **Kafka** for async events (API -> Worker).
-- **Polyglot Persistence**: **PostgreSQL** for Users (Relational), **MongoDB** for Tasks (Document).
-- **Scalability**: Independent scaling of all 3 components.
+**Status**: ✅ **Phase 3 Complete - All Services Deployed and Tested**
 
----
+## Architecture
 
-## 2. High-Level Architecture
+### High-Level Design (HTTP + Event-Driven)
 
-```ascii
-                                      +----------------+
-                                      |  Grafana/Loki  |
-                                      +-------+--------+
-                                              ^
-+-------------+                               | (Metrics/Logs)
-| React UI    |                               |
-| (Frontend)  |                               |
-+------+------+                               |
-       | (HTTP/JSON)                          |
-       v                                      |
-+-------------+       (gRPC)          +-------+--------+
-| NGINX       | --------------------> | Auth Service   |
-| (Ingress)   | <-------------------- | (Go + gRPC)    |
-+------+------+                       +-------+--------+
-       |                                      |
-       | (HTTP /api/tasks)                    v
-       v                              +----------------+
-+-------------+                       | PostgreSQL     |
-| API Service |                       | (Users DB)     |
-| (Go + HTTP) |                       +----------------+
-+------+------+
-       |
-       | (Produce: "ImageUploaded")
-       v
-+-------------+    +-------------+
-| Kafka       |    | MongoDB     |
-| (Broker)    |    | (Tasks DB)  |
-+------+------+    +-------------+
-       |
-       | (Consume: "ImageUploaded")
-       v
-+-------------+
-| Go Worker   | <---- (Scale to N replicas)
-| (Consumer)  |
-+------+------+
-       |
-       v
-+-------------+
-| Object Store|
-| (MinIO/S3)  |
-+-------------+
+```
+┌──────────┐       HTTP        ┌──────────┐       HTTP        ┌──────────┐
+│  Client  │ ────────────────▶ │   API    │ ────────────────▶ │   Auth   │
+└──────────┘                   │ Service  │                   │ Service  │
+                               └────┬─────┘                   └──────────┘
+                                    │                               │
+                                    │                               ▼
+                                    │                         ┌──────────┐
+                                    │                         │PostgreSQL│
+                                    │                         │  (Users) │
+                                    ▼                         └──────────┘
+                              ┌──────────┐
+                              │  MongoDB │
+                              │  (Tasks) │
+                              └──────────┘
+                                    │
+                                    ▼
+                              ┌──────────┐
+                              │  Kafka   │
+                              │ (Events) │
+                              └────┬─────┘
+                                   │
+                                   │ Subscribe
+                                   ▼
+                             ┌──────────┐
+                             │  Worker  │
+                             │ Service  │
+                             └────┬─────┘
+                                  │
+                                  ▼
+                            ┌──────────┐
+                            │  MongoDB │
+                            │ (Update) │
+                            └──────────┘
 ```
 
----
+## Services
 
-## 3. Tech-by-Tech Usage Plan
+### 1. Auth Service (HTTP)
+**Purpose**: User authentication and JWT token management  
+**Port**: 50051  
+**Protocol**: HTTP REST  
+**Database**: PostgreSQL
 
-| Technology | Usage in PixelFlow |
-| :--- | :--- |
-| **Go (Golang)** | **Auth Service**: gRPC server, handles Login/Signup, issues JWTs. <br> **API Service**: HTTP REST API, validates JWTs (via gRPC check or local key), manages Tasks. <br> **Worker Service**: Consumes Kafka, processes images. |
-| **gRPC / Protobuf** | **Communication**: API Service calls Auth Service to validate tokens or fetch user details. |
-| **PostgreSQL** | **Auth DB**: Stores User accounts (Relational data). Best practice for structured user data. |
-| **MongoDB** | **Task DB**: Stores Task metadata (Flexible schema). |
-| **Kafka** | **Async Messaging**: Decouples API from Workers. |
-| **Docker & K8s** | Containerization and Orchestration for all 3 services + databases. |
-| **Helm** | Deploys the entire stack (Auth, API, Worker, DBs). |
-| **NGINX Ingress** | Routes `/auth` to Auth Service (optional, or API Gateway pattern) and `/api` to API Service. |
-| **Prometheus/Grafana** | Metrics for "gRPC Latency", "HTTP Latency", "Kafka Lag". |
-| **Loki** | Distributed logging across all 3 services. |
+**Endpoints**:
+- `POST /register` - Create new user account
+- `POST /login` - Authenticate and receive JWT token
+- `GET /validate` - Validate JWT token (used by API service)
 
----
+**Tech Stack**:
+- Go with Gin framework
+- PostgreSQL with GORM ORM
+- JWT for token generation
+- bcrypt for password hashing
 
-## 4. Feature Set
+### 2. API Service (HTTP)
+**Purpose**: REST API for task management  
+**Port**: 8080  
+**Protocol**: HTTP REST  
+**Databases**: MongoDB (tasks), Kafka (events)
 
-1.  **Auth Service**:
-    -   `Register(username, password)` -> Saves to Postgres.
-    -   `Login(username, password)` -> Returns JWT.
-    -   `Validate(token)` -> gRPC method called by API Service.
-2.  **API Service**:
-    -   **Middleware**: Intercepts requests, calls Auth Service (via gRPC) to validate identity.
-    -   `POST /tasks`: Upload image -> Save to MinIO -> Save to Mongo -> Push to Kafka.
-    -   `GET /tasks`: Fetch user's tasks from Mongo.
-3.  **Worker Service**:
-    -   Consumes `task_created`.
-    -   Processes image.
-    -   Updates Mongo `status="completed"`.
+**Endpoints**:
+- `GET /health` - Health check (public)
+- `POST /api/upload` - Create image processing task (authenticated)
+- `GET /api/tasks` - List user's tasks (authenticated)
 
----
+**Authentication**: JWT validation via HTTP call to Auth Service
 
-## 5. Monitoring Metrics
+**Tech Stack**:
+- Go with Gin framework
+- MongoDB for task storage
+- Kafka producer for event publishing
+- HTTP client for auth validation
 
-**New Microservice Metrics:**
--   `grpc_server_handled_total`: Auth Service request count.
--   `grpc_server_handling_seconds`: Auth Service latency.
+### 3. Worker Service (Background)
+**Purpose**: Asynchronous image processing  
+**Protocol**: Kafka consumer  
+**Databases**: MongoDB (task updates)
 
----
+**Functionality**:
+- Consumes tasks from Kafka topic `image-tasks`
+- Simulates image processing (5-second delay)
+- Updates task status: PENDING → PROCESSING → COMPLETED
+- Generates processed image URL
 
-## 6. Step-by-Step Learning Roadmap
+**Tech Stack**:
+- Go
+- Kafka consumer (consumer group: `worker-group-1`)
+- MongoDB for status updates
 
-### Phase 1: The Foundation (Auth Service)
--   **Goal**: Build the Identity Provider.
--   **Tech**: Go, gRPC, Protobuf, PostgreSQL.
--   **Tasks**:
-    -   Define `auth.proto`.
-    -   Implement Go gRPC Server.
-    -   Connect to PostgreSQL.
-    -   Implement JWT generation.
+## Data Flow
 
-### Phase 2: The Gateway (API Service)
--   **Goal**: Build the main REST API.
--   **Tech**: Go, HTTP, MongoDB, gRPC Client.
--   **Tasks**:
-    -   Create REST endpoints.
-    -   Implement gRPC Client to talk to Auth Service.
-    -   Connect to MongoDB.
+### 1. User Registration & Login
+```
+Client → POST /register → Auth Service → PostgreSQL (create user)
+Client → POST /login → Auth Service → PostgreSQL (verify) → JWT Token
+```
 
-### Phase 3: The Async Engine (Kafka + Worker)
--   **Goal**: Background processing.
--   **Tech**: Kafka, Go.
--   **Tasks**:
-    -   Setup Kafka.
-    -   API produces events.
-    -   Worker consumes and processes images.
+### 2. Task Creation
+```
+Client → POST /api/upload (with JWT) → API Service
+  ↓
+API validates JWT via Auth Service HTTP call
+  ↓
+API creates task in MongoDB (status: PENDING)
+  ↓
+API publishes event to Kafka topic
+  ↓
+Returns task to client
+```
 
-### Phase 4-7: (Same as before - UI, Docker, K8s, CI/CD)
--   React UI will now login against the API (which proxies to Auth) or directly to Auth if exposed.
+### 3. Background Processing
+```
+Kafka → Worker Service (consumer)
+  ↓
+Worker updates MongoDB (status: PROCESSING)
+  ↓
+Worker simulates processing (5 seconds)
+  ↓
+Worker updates MongoDB (status: COMPLETED, processed_url)
+```
+
+### 4. Status Check
+```
+Client → GET /api/tasks (with JWT) → API Service
+  ↓
+API validates JWT
+  ↓
+API queries MongoDB
+  ↓
+Returns tasks with current status
+```
+
+## Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| **Languages** | Go 1.21+ | All services |
+| **API Framework** | Gin | HTTP REST APIs |
+| **Auth Database** | PostgreSQL 15 | User accounts |
+| **Task Database** | MongoDB 6.0 | Task storage |
+| **Message Queue** | Kafka 7.3 | Event streaming |
+| **ORM** | GORM | PostgreSQL access |
+| **Containerization** | Docker, Docker Compose | Deployment |
+
+## Infrastructure (Docker)
+
+All services run in Docker containers:
+- `pixelflow-auth` - Auth Service
+- `pixelflow-api` - API Service  
+- `pixelflow-worker` - Worker Service
+- `pixelflow-postgres-auth` - PostgreSQL database
+- `pixelflow-mongo` - MongoDB database
+- `pixelflow-kafka` - Kafka broker
+- `pixelflow-zookeeper` - Kafka coordination
+
+## Development vs Original Design
+
+**Original Plan**: gRPC for inter-service communication  
+**Implemented**: HTTP REST for simplicity and reduced complexity
+
+**Benefits of HTTP Approach**:
+- ✅ Simpler build process (no protobuf code generation)
+- ✅ Easier debugging with standard HTTP tools
+- ✅ Lower learning curve
+- ✅ Still demonstrates microservices patterns
+- ✅ Maintains distributed architecture principles
+
+## Running the Application
+
+```bash
+# Start all services
+make up
+
+# Check status
+make ps
+
+# Run E2E tests
+make test
+
+# View logs
+make logs            # All services
+make logs-worker     # Specific service
+
+# Stop all services
+make down
+```
+
+For all available commands, run `make help`.
+
+## Verified Features ✅
+
+- ✅ User registration and authentication
+- ✅ JWT token generation and validation  
+- ✅ Protected API endpoints
+- ✅ Task creation and persistence
+- ✅ Kafka event publishing
+- ✅ Worker consumption and processing
+- ✅ Status updates (PENDING → PROCESSING → COMPLETED)
+- ✅ End-to-end workflow tested
+
+## Key Learning Outcomes
+
+### Backend Development
+- RESTful API design with Gin
+- JWT authentication patterns
+- Database modeling (PostgreSQL + MongoDB)
+- ORM usage with GORM
+
+### Distributed Systems
+- Microservices architecture
+- Event-driven design with Kafka
+- Service-to-service communication (HTTP)
+- Async task processing patterns
+
+### DevOps & Cloud-Native
+- Docker containerization
+- Multi-container orchestration (Docker Compose)
+- Service discovery and networking
+- Health checks and logging
+
+### Scalability Patterns
+- Horizontal scaling with Kafka consumer groups
+- Database per service pattern
+- Stateless service design
+- Message queue for decoupling
 
 ---

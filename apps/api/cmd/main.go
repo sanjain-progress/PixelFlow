@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,20 +18,33 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 func main() {
+	// Configuration
+	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017")
+	kafkaBrokers := strings.Split(getEnv("KAFKA_BROKERS", "kafka:29092"), ",")
+	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:50051")
+	port := getEnv("PORT", "8080")
+
 	// 1. Initialize MongoDB
 	// Connect to the 'pixelflow' database
-	dbHandler := db.Init("mongodb://localhost:27017", "pixelflow")
+	dbHandler := db.Init(mongoURL, "pixelflow")
 	taskCollection := dbHandler.DB.Collection("tasks")
 
 	// 2. Initialize Kafka Producer
 	// Connect to Kafka broker and topic 'image-tasks'
-	kafkaProducer := kafka.NewProducer([]string{"localhost:9092"}, "image-tasks")
+	kafkaProducer := kafka.NewProducer(kafkaBrokers, "image-tasks")
 	defer kafkaProducer.Close()
 
 	// 3. Initialize Auth Middleware
 	// Connect to Auth Service gRPC server
-	authMiddleware, err := middleware.NewAuthMiddleware("localhost:50051")
+	authMiddleware, err := middleware.NewAuthMiddleware(authServiceURL)
 	if err != nil {
 		log.Fatalln("Failed to connect to Auth Service:", err)
 	}
@@ -43,11 +58,11 @@ func main() {
 	})
 
 	// Protected Routes (Require Authentication)
-	api := r.Group("/api")
-	api.Use(authMiddleware.RequireAuth())
+	// Apply auth middleware to protected routes
+	authRoutes := r.Group("/api").Use(authMiddleware.Middleware())
 	{
 		// POST /api/upload - Create a new task
-		api.POST("/upload", func(c *gin.Context) {
+		authRoutes.POST("/upload", func(c *gin.Context) {
 			// Get UserID from context (set by middleware)
 			userID := c.GetString("userID")
 
@@ -64,7 +79,7 @@ func main() {
 			task := models.Task{
 				ID:          primitive.NewObjectID(),
 				UserID:      userID,
-				OriginalURL: req.ImageURL,
+				ImageURL:    req.ImageURL,
 				Status:      models.StatusPending,
 				CreatedAt:   time.Now(),
 				UpdatedAt:   time.Now(),
@@ -81,7 +96,7 @@ func main() {
 			err = kafkaProducer.PublishTask(context.Background(), kafka.TaskEvent{
 				TaskID:      task.ID.Hex(),
 				UserID:      task.UserID,
-				OriginalURL: task.OriginalURL,
+				ImageURL:    task.ImageURL,
 			})
 			if err != nil {
 				// Note: In production, we might want to rollback the DB insert or retry
@@ -92,7 +107,7 @@ func main() {
 		})
 
 		// GET /api/tasks - List user's tasks
-		api.GET("/tasks", func(c *gin.Context) {
+		authRoutes.GET("/tasks", func(c *gin.Context) {
 			userID := c.GetString("userID")
 
 			// Find tasks for this user
@@ -114,6 +129,6 @@ func main() {
 	}
 
 	// 5. Start Server
-	fmt.Println("API Service running on :8080")
-	r.Run(":8080")
+	fmt.Printf("API Service running on :%s\n", port)
+	r.Run(":" + port)
 }

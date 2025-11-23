@@ -1,94 +1,134 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log"
-	"net"
+	"os"
+	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/sanjain/pixelflow/apps/auth/internal/db"
 	"github.com/sanjain/pixelflow/apps/auth/internal/models"
 	"github.com/sanjain/pixelflow/apps/auth/internal/utils"
-	"github.com/sanjain/pixelflow/pkg/pb"
-	"google.golang.org/grpc"
 )
 
-type server struct {
-	pb.UnimplementedAuthServiceServer
-	H *db.Handler
-}
-
-func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	var user models.User
-
-	if result := s.H.DB.Where(&models.User{Email: req.Email}).First(&user); result.Error == nil {
-		return nil, errors.New("email already exists")
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
 	}
-
-	hashedPassword, err := utils.HashPassword(req.Password)
-	if err != nil {
-		return nil, err
-	}
-
-	user.Email = req.Email
-	user.Password = hashedPassword
-
-	if result := s.H.DB.Create(&user); result.Error != nil {
-		return nil, errors.New("failed to create user")
-	}
-
-	return &pb.RegisterResponse{
-		UserId: fmt.Sprintf("%d", user.ID),
-	}, nil
-}
-
-func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	var user models.User
-
-	if result := s.H.DB.Where(&models.User{Email: req.Email}).First(&user); result.Error != nil {
-		return nil, errors.New("user not found")
-	}
-
-	if !utils.CheckPassword(req.Password, user.Password) {
-		return nil, errors.New("invalid credentials")
-	}
-
-	token, err := utils.GenerateToken(user.ID)
-	if err != nil {
-		return nil, errors.New("failed to generate token")
-	}
-
-	return &pb.LoginResponse{
-		Token: token,
-	}, nil
-}
-
-func (s *server) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.ValidateResponse, error) {
-	userID, err := utils.ValidateToken(req.Token)
-	if err != nil {
-		return nil, errors.New("invalid token")
-	}
-
-	return &pb.ValidateResponse{
-		UserId: fmt.Sprintf("%d", userID),
-	}, nil
+	return fallback
 }
 
 func main() {
-	h := db.Init("postgres://postgres:password@localhost:5432/auth_db?sslmode=disable")
+	dbURL := getEnv("DATABASE_URL", "postgres://postgres:password@localhost:5432/auth_db?sslmode=disable")
+	port := getEnv("PORT", "50051")
 
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalln("Failed to listen:", err)
-	}
+	h := db.Init(dbURL)
 
-	fmt.Println("Auth Service running on :50051")
+	// Setup Gin HTTP server
+	r := gin.Default()
 
-	s := grpc.NewServer()
-	pb.RegisterAuthServiceServer(s, &server{H: h})
+	// Register endpoint
+	r.POST("/register", func(c *gin.Context) {
+		var req struct {
+			Email    string `json:"email" binding:"required"`
+			Password string `json:"password" binding:"required"`
+		}
 
-	if err := s.Serve(lis); err != nil {
-		log.Fatalln("Failed to serve:", err)
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		// Check if user exists
+		var existing models.User
+		if err := h.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
+			c.JSON(400, gin.H{"error": "User already exists"})
+			return
+		}
+
+		// Hash password
+		hashedPw, err := utils.HashPassword(req.Password)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to hash password"})
+			return
+		}
+
+		// Create user
+		user := models.User{
+			Email:    req.Email,
+			Password: hashedPw,
+		}
+
+		if err := h.DB.Create(&user).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create user"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "User registered successfully"})
+	})
+
+	// Login endpoint
+	r.POST("/login", func(c *gin.Context) {
+		var req struct {
+			Email    string `json:"email" binding:"required"`
+			Password string `json:"password" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		// Find user
+		var user models.User
+		if err := h.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+			c.JSON(401, gin.H{"error": "Invalid credentials"})
+			return
+		}
+
+		// Check password
+		if !utils.CheckPasswordHash(req.Password, user.Password) {
+			c.JSON(401, gin.H{"error": "Invalid credentials"})
+			return
+		}
+
+		// Generate JWT
+		token, err := utils.GenerateJWT(fmt.Sprintf("%d", user.ID))
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to generate token"})
+			return
+		}
+
+		c.JSON(200, gin.H{"token": token})
+	})
+
+	// Validate endpoint
+	r.GET("/validate", func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(401, gin.H{"valid": false})
+			return
+		}
+
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.JSON(401, gin.H{"valid": false})
+			return
+		}
+
+		token := parts[1]
+		userID, err := utils.ValidateJWT(token)
+		if err != nil {
+			c.JSON(401, gin.H{"valid": false})
+			return
+		}
+
+		c.JSON(200, gin.H{"valid": true, "user_id": userID})
+	})
+
+	fmt.Printf("Auth Service (HTTP) running on :%s\n", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
 	}
 }

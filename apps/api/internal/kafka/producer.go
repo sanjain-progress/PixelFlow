@@ -31,9 +31,9 @@ func NewProducer(brokers []string, topic string) *Producer {
 
 // TaskEvent represents the message sent to Kafka.
 type TaskEvent struct {
-	TaskID      string `json:"task_id"`
-	UserID      string `json:"user_id"`
-	OriginalURL string `json:"original_url"`
+	TaskID   string `json:"task_id"`
+	UserID   string `json:"user_id"`
+	ImageURL string `json:"image_url"`
 }
 
 // PublishTask sends a task event to Kafka.

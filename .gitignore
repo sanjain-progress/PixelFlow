@@ -1,6 +1,42 @@
 node_modules/
-dist/
+d# Binaries and build artifacts
 bin/
-.DS_Store
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IDE and editor files
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Docker volumes (local testing)
+data/
+
+# Temporary files
+tmp/
+temp/
+
+# Old/deprecated files (already removed)
+proto/
+pkg/
+verify_*.sh
+apps/*/client/vscode/

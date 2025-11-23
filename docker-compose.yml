@@ -44,17 +44,66 @@ services:
     image: confluentinc/cp-kafka:7.3.0
     container_name: pixelflow-kafka
     ports:
-      - "9092:9092"
+      - "9093:9092"
     depends_on:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       # Listeners: Internal (inside docker) and External (localhost)
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://127.0.0.1:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - pixelflow-net
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+    container_name: pixelflow-auth
+    ports:
+      - "50051:50051"
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres-auth:5432/auth_db?sslmode=disable
+      PORT: "50051"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    networks:
+      - pixelflow-net
+
+  api-service:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: pixelflow-api
+    ports:
+      - "8080:8080"
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      KAFKA_BROKERS: kafka:29092
+      AUTH_SERVICE_URL: http://auth-service:50051
+      PORT: "8080"
+    depends_on:
+      - mongo
+      - kafka
+      - auth-service
+    networks:
+      - pixelflow-net
+
+  worker-service:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: pixelflow-worker
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      KAFKA_BROKERS: kafka:29092
+    depends_on:
+      - mongo
+      - kafka
     networks:
       - pixelflow-net
 
