@@ -105,6 +105,9 @@ services:
       - KAFKA_BROKERS=kafka:29092
       - MONGO_URL=mongodb://mongo:27017
       - GROUP_ID=worker-group-1
+      - METRICS_PORT=8081
+    ports:
+      - "8081:8081"
     networks:
       - pixelflow-net
 

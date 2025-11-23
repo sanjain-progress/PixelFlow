@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sanjain/pixelflow/apps/api/internal/db"
 	"github.com/sanjain/pixelflow/apps/api/internal/kafka"
+	"github.com/sanjain/pixelflow/apps/api/internal/metrics"
 	"github.com/sanjain/pixelflow/apps/api/internal/middleware"
 	"github.com/sanjain/pixelflow/apps/api/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -58,7 +60,9 @@ func main() {
 	}
 
 	// 4. Setup Router
-	r := gin.Default()
+	r := gin.New() // Use New() to avoid default logger/recovery middleware
+	r.Use(gin.Recovery())
+	r.Use(middleware.PrometheusMiddleware()) // Add Prometheus Middleware
 
 	// CORS Middleware
 	r.Use(func(c *gin.Context) {
@@ -74,6 +78,9 @@ func main() {
 
 		c.Next()
 	})
+
+	// Prometheus Metrics Endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Public Health Check
 	r.GET("/health", func(c *gin.Context) {
@@ -117,6 +124,9 @@ func main() {
 				return
 			}
 
+			// Increment Task Created Metric
+			metrics.TasksCreatedTotal.Inc()
+
 			// Publish event to Kafka
 			err = kafkaProducer.PublishTask(context.Background(), kafka.TaskEvent{
 				TaskID:      task.ID.Hex(),
@@ -126,8 +136,10 @@ func main() {
 			if err != nil {
 				// Note: In production, we might want to rollback the DB insert or retry
 				slog.Error("Upload: Failed to publish to Kafka", "error", err)
+				metrics.KafkaPublishErrorsTotal.Inc()
 			} else {
 				slog.Info("Task published to Kafka", "task_id", task.ID.Hex())
+				metrics.KafkaMessagesPublishedTotal.Inc()
 			}
 
 			c.JSON(http.StatusCreated, task)
@@ -136,6 +148,9 @@ func main() {
 		// GET /api/tasks - List user's tasks
 		authRoutes.GET("/tasks", func(c *gin.Context) {
 			userID := c.GetString("userID")
+
+			// Increment Task Retrieval Metric
+			metrics.TasksRetrievedTotal.Inc()
 
 			// Find tasks for this user
 			cursor, err := taskCollection.Find(context.Background(), bson.M{"user_id": userID})
