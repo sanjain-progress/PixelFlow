@@ -725,15 +725,27 @@ docker system prune                  # Clean up unused resources
 ✅ **Keep it simple**: HTTP REST is easier to debug than gRPC for learning projects
 
 ## 🚧 Future Enhancements
-
-- [ ] Add Prometheus metrics
-- [ ] Implement Grafana dashboards
-- [ ] Add distributed tracing (Jaeger)
-- [ ] Implement retry logic with DLQ
-- [ ] Add rate limiting (Redis)
-- [ ] WebSocket for real-time updates
-- [ ] Kubernetes deployment
-- [ ] CI/CD pipeline
+ 
+ ### Cloud-Native & Deployment
+ - [ ] **Kubernetes Deployment**: Deploy services to K8s using manifests (Deployments, Services, Ingress)
+ - [ ] **Helm Charts**: Package application as a Helm chart for easy versioning and deployment
+ - [ ] **CI/CD Pipeline**: Automate testing and deployment using GitHub Actions or GitLab CI
+ - [ ] **Service Mesh**: Implement Istio or Linkerd for advanced traffic management and security
+ 
+ ### API Documentation
+ - [ ] **Swagger/OpenAPI**: Auto-generate OpenAPI spec from Go code using `swaggo/swag`
+ - [ ] **Swagger UI**: Serve interactive API documentation at `/docs` endpoint
+ 
+ ### Reliability & Scalability
+ - [ ] **Retry Logic & DLQ**: Implement Dead Letter Queues for failed Kafka messages
+ - [ ] **Rate Limiting**: Add Redis-based rate limiting to API service
+ - [ ] **Circuit Breakers**: Implement circuit breakers for service-to-service calls
+ - [ ] **Caching**: Add Redis caching for frequently accessed data (e.g., user profiles)
+ 
+ ### Features
+ - [ ] **Real-time Updates**: Implement WebSockets for real-time task status updates on frontend
+ - [ ] **Email Notifications**: Send emails upon task completion using an SMTP provider
+ - [ ] **Multi-tenancy**: Support multiple organizations/teams with data isolation
 
 ## 📝 License
 
