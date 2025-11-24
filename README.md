@@ -19,35 +19,28 @@ PixelFlow is a fully functional distributed system for asynchronous image proces
 
 ## 🏗️ Architecture
 
-```
-User (Browser)
-     ↓ HTTP :3000
-┌──────────────────┐
-│ Frontend Service │
-│ (React + Nginx)  │
-└────┬─────────────┘
-     │ HTTP calls
-     ↓
-┌──────────────────┐       ┌──────────────────┐
-│   API Service    │ ────▶ │  Auth Service    │
-│  (Gin + JWT)     │ :8080 │  (User Auth)     │ :50051
-└────┬─────────────┘       └──────────────────┘
-     │ validates JWT            │ PostgreSQL
-     │ publishes event          
-     ↓
-┌──────────────────┐
-│      Kafka       │ :9093
-│  (image-tasks)   │
-└────┬─────────────┘
-     │ consumes
-     ↓
-┌──────────────────┐
-│  Worker Service  │
-│  (Processing)    │
-└────┬─────────────┘
-     │ updates status
-     ↓
-   MongoDB :27017
+```mermaid
+graph TD
+    User((User/Browser))
+    Frontend[Frontend Service]
+    Auth[Auth Service]
+    API[API Service]
+    Worker[Worker Service]
+    Kafka{Kafka}
+    Postgres[(PostgreSQL)]
+    Mongo[(MongoDB)]
+
+    User -->|HTTP :3000| Frontend
+    Frontend -->|HTTP /login| Auth
+    Frontend -->|HTTP /api| API
+    
+    Auth -->|SQL| Postgres
+    API -->|Validate Token| Auth
+    API -->|Create Task| Mongo
+    API -->|Publish Event| Kafka
+    
+    Kafka -->|Consume| Worker
+    Worker -->|Update Status| Mongo
 ```
 
 ## 🚀 Quick Start
