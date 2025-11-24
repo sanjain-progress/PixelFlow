@@ -83,6 +83,9 @@ logs:
 	docker-compose logs -f
 
 # View logs from specific services
+logs-frontend:
+	docker-compose logs -f frontend
+
 logs-auth:
 	docker-compose logs -f auth-service
 

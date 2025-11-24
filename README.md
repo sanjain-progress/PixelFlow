@@ -76,20 +76,44 @@ make logs
 ### Makefile Commands
 
 ```bash
+# General commands
 make help          # Show all available commands
 make up            # Start all services
 make down          # Stop all services
 make restart       # Restart services
-make logs          # Follow logs from all services
-make test          # Run E2E tests
+make build         # Build all Docker images
+make rebuild       # Rebuild all images without cache
+make ps            # Show running containers
 make health        # Check service health
 make clean         # Stop and remove all data (⚠️ destructive)
+make quickstart    # Build + up + test (full setup)
 
-# Service-specific logs
+# Testing
+make test          # Run E2E tests
+make test-e2e      # Run application E2E tests
+make test-observability  # Verify observability stack
+make test-metrics  # Check Prometheus metrics
+make test-traces   # Verify Jaeger traces
+make test-logs     # Check Loki logs
+make test-alerts   # Test alert rules
+make test-full     # Run all tests (E2E + Observability)
+
+# Logs - Services
+make logs          # Follow logs from all services
 make logs-frontend # Frontend logs
 make logs-auth     # Auth service logs
 make logs-api      # API service logs
 make logs-worker   # Worker service logs
+
+# Logs - Infrastructure
+make logs-kafka      # Kafka logs
+make logs-mongo      # MongoDB logs
+make logs-postgres   # PostgreSQL logs
+make logs-prometheus # Prometheus logs
+make logs-grafana    # Grafana logs
+make logs-jaeger     # Jaeger logs
+make logs-loki       # Loki logs
+make logs-promtail   # Promtail logs
 
 # Database access
 make db-postgres   # PostgreSQL shell
@@ -97,9 +121,23 @@ make db-mongo      # MongoDB shell
 
 # Kafka debugging
 make kafka-topics    # List topics
-make kafka-consumer  # Consume messages
+make kafka-consumer  # Consume messages from image-tasks topic
 make kafka-groups    # Show consumer groups
+
+# Observability access
+make open-grafana    # Open Grafana in browser
+make open-prometheus # Open Prometheus in browser
+make open-jaeger     # Open Jaeger in browser
+
+# Development helpers
+make dev-auth      # Run auth service locally
+make dev-api       # Run API service locally
+make dev-worker    # Run worker service locally
+make dev-frontend  # Run frontend locally
+make install-frontend  # Install frontend dependencies
+make build-frontend    # Build frontend for production
 ```
+
 
 ### Expected Output
 ```
