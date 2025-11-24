@@ -333,7 +333,7 @@ db-mongo:
 # Kafka topics
 kafka-topics:
 	@echo "📋 Listing Kafka topics..."
-	docker exec pixelflow-kafka kafka-topics --list --bootstrap-server localhost:9092
+	docker exec pixelflow-kafka kafka-topics --list --bootstrap-server kafka:29092
 
 # Kafka consumer (read messages)
 kafka-consumer:
@@ -341,18 +341,18 @@ kafka-consumer:
 	docker exec pixelflow-kafka kafka-console-consumer \
 		--topic image-tasks \
 		--from-beginning \
-		--bootstrap-server localhost:9092
+		--bootstrap-server kafka:29092
 
 # Kafka consumer groups
 kafka-groups:
 	@echo "👥 Listing Kafka consumer groups..."
 	docker exec pixelflow-kafka kafka-consumer-groups \
-		--list --bootstrap-server localhost:9092
+		--list --bootstrap-server kafka:29092
 	@echo ""
 	@echo "Worker group details:"
 	@docker exec pixelflow-kafka kafka-consumer-groups \
 		--describe --group worker-group-1 \
-		--bootstrap-server localhost:9092
+		--bootstrap-server kafka:29092
 
 # Quick start (build + up + test)
 quickstart: build up

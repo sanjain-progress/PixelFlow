@@ -271,13 +271,13 @@ SELECT * FROM users;
 ### Kafka Topics
 ```bash
 # List topics
-docker exec pixelflow-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec pixelflow-kafka kafka-topics --list --bootstrap-server kafka:29092
 
 # Consume messages
 docker exec pixelflow-kafka kafka-console-consumer \
   --topic image-tasks \
   --from-beginning \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:29092
 ```
 
 ## 🎓 Key Learning Outcomes
@@ -551,10 +551,10 @@ docker-compose logs kafka
 docker-compose logs zookeeper
 
 # Verify Kafka listener configuration
-docker exec pixelflow-kafka kafka-broker-api-versions --bootstrap-server localhost:9092
+docker exec pixelflow-kafka kafka-broker-api-versions --bootstrap-server kafka:29092
 
 # Check topic exists
-docker exec pixelflow-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec pixelflow-kafka kafka-topics --list --bootstrap-server kafka:29092
 ```
 
 **Solution**:
@@ -574,7 +574,7 @@ docker-compose logs -f worker-service
 docker exec pixelflow-kafka kafka-console-consumer \
   --topic image-tasks \
   --from-beginning \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:29092
 
 # Check MongoDB for task status
 docker exec -it pixelflow-mongo mongosh
@@ -638,22 +638,22 @@ db.tasks.countDocuments()            # Count tasks
 # === Kafka Debugging ===
 # List topics
 docker exec pixelflow-kafka kafka-topics \
-  --list --bootstrap-server localhost:9092
+  --list --bootstrap-server kafka:29092
 
 # Consume messages
 docker exec pixelflow-kafka kafka-console-consumer \
   --topic image-tasks \
   --from-beginning \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:29092
 
 # Check consumer groups
 docker exec pixelflow-kafka kafka-consumer-groups \
-  --list --bootstrap-server localhost:9092
+  --list --bootstrap-server kafka:29092
 
 # Describe consumer group
 docker exec pixelflow-kafka kafka-consumer-groups \
   --describe --group worker-group-1 \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:29092
 
 # === Network Debugging ===
 # Check container network
