@@ -10,11 +10,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sanjain/pixelflow/apps/api/internal/auth"
 	"github.com/sanjain/pixelflow/apps/api/internal/db"
 	"github.com/sanjain/pixelflow/apps/api/internal/kafka"
 	"github.com/sanjain/pixelflow/apps/api/internal/metrics"
 	"github.com/sanjain/pixelflow/apps/api/internal/middleware"
 	"github.com/sanjain/pixelflow/apps/api/internal/models"
+	"github.com/sanjain/pixelflow/apps/api/internal/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -31,11 +34,15 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	// Initialize Tracer
+	shutdown := tracing.InitTracer("api-service")
+	defer shutdown(context.Background())
+
 	// Configuration
-	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017")
-	kafkaBrokers := strings.Split(getEnv("KAFKA_BROKERS", "kafka:29092"), ",")
-	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:50051")
 	port := getEnv("PORT", "8080")
+	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017")
+	kafkaBrokers := strings.Split(getEnv("KAFKA_BROKERS", "localhost:9093"), ",")
+	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:50051")
 
 	slog.Info("Starting API Service", "port", port, "kafka_brokers", kafkaBrokers)
 
@@ -49,7 +56,7 @@ func main() {
 	// Connect to Kafka broker and topic 'image-tasks'
 	kafkaProducer := kafka.NewProducer(kafkaBrokers, "image-tasks")
 	defer kafkaProducer.Close()
-	slog.Info("Connected to Kafka Producer", "topic", "image-tasks")
+	slog.Info("Kafka Producer initialized")
 
 	// 3. Initialize Auth Middleware
 	// Connect to Auth Service gRPC server
@@ -58,10 +65,16 @@ func main() {
 		slog.Error("Failed to connect to Auth Service", "error", err)
 		os.Exit(1)
 	}
+	slog.Info("Auth Middleware initialized")
 
 	// 4. Setup Router
-	r := gin.New() // Use New() to avoid default logger/recovery middleware
+	r := gin.Default() // Use New() to avoid default logger/recovery middleware
+
+	// Add OpenTelemetry Middleware
+	r.Use(otelgin.Middleware("api-service"))
+
 	r.Use(gin.Recovery())
+	// Add Prometheus Middleware
 	r.Use(middleware.PrometheusMiddleware()) // Add Prometheus Middleware
 
 	// CORS Middleware

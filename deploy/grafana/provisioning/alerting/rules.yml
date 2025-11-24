@@ -1,0 +1,212 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: PixelFlow Alerts
+    folder: Observability
+    interval: 1m
+    rules:
+      - uid: high_error_rate_api
+        title: High Error Rate - API Service
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'rate(api_requests_total{status=~"5.."}[5m]) / rate(api_requests_total[5m]) * 100'
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params:
+                      - 5
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          description: 'API service error rate is {{ $value }}% (threshold: 5%)'
+          summary: High error rate detected in API service
+        labels:
+          severity: warning
+          service: api
+
+      - uid: high_latency_api
+        title: High Latency - API Service
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'histogram_quantile(0.95, rate(api_request_duration_seconds_bucket[5m]))'
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          description: 'API P95 latency is {{ $value }}s (threshold: 1s)'
+          summary: High latency detected in API service
+        labels:
+          severity: warning
+          service: api
+
+      - uid: service_down_api
+        title: Service Down - API Service
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'up{job="api-service"}'
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          description: 'API service is down or not reporting metrics'
+          summary: API service is unreachable
+        labels:
+          severity: critical
+          service: api
+
+      - uid: worker_high_error_rate
+        title: High Error Rate - Worker Service
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'rate(worker_tasks_processed_total{status="failure"}[5m]) / rate(worker_tasks_processed_total[5m]) * 100'
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params:
+                      - 5
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          description: 'Worker task failure rate is {{ $value }}% (threshold: 5%)'
+          summary: High failure rate in worker task processing
+        labels:
+          severity: warning
+          service: worker
+
+      - uid: kafka_consumption_errors
+        title: High Kafka Consumption Errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'rate(worker_kafka_consumption_errors_total[5m])'
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.1
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          description: 'Kafka consumption error rate is {{ $value }}/s'
+          summary: Worker experiencing Kafka consumption errors
+        labels:
+          severity: warning
+          service: worker

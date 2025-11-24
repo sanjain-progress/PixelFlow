@@ -13,6 +13,9 @@ import (
 	"github.com/sanjain/pixelflow/apps/worker/internal/kafka"
 	"github.com/sanjain/pixelflow/apps/worker/internal/metrics"
 	"github.com/sanjain/pixelflow/apps/worker/internal/processor"
+	"github.com/sanjain/pixelflow/apps/worker/internal/tracing"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func getEnv(key, fallback string) string {
@@ -26,6 +29,10 @@ func main() {
 	// Initialize Structured Logger (JSON)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	// Initialize Tracer
+	shutdown := tracing.InitTracer("worker-service")
+	defer shutdown(context.Background())
 
 	// Configuration
 	mongoURL := getEnv("MONGO_URL", "mongodb://localhost:27017")
@@ -66,6 +73,18 @@ func main() {
 	slog.Info("Worker started consuming messages...")
 	consumer.Consume(context.Background(), func(event kafka.TaskEvent) error {
 		slog.Info("Received task", "task_id", event.TaskID, "user_id", event.UserID)
+
+		// Extract Trace Context
+		carrier := propagation.MapCarrier{}
+		for _, h := range event.Headers {
+			carrier[h.Key] = string(h.Value)
+		}
+		ctx := otel.GetTextMapPropagator().Extract(context.Background(), carrier)
+
+		// Start Span
+		tracer := otel.Tracer("worker-service")
+		_, span := tracer.Start(ctx, "process_task")
+		defer span.End()
 		
 		// Increment consumed metric
 		// Tracks total messages pulled from Kafka, regardless of processing outcome

@@ -153,10 +153,43 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
+      - grafana-storage:/var/lib/grafana
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning
-      - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - pixelflow-net
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: pixelflow-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    networks:
+      - pixelflow-net
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: pixelflow-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/loki/loki-config.yaml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - pixelflow-net
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: pixelflow-promtail
+    volumes:
+      - ./deploy/promtail/promtail-config.yaml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
     networks:
       - pixelflow-net
 
@@ -165,6 +198,7 @@ networks:
     driver: bridge
 
 volumes:
+  grafana-storage:
   postgres_auth_data:
   mongo_data:
   prometheus_data:

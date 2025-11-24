@@ -12,7 +12,9 @@ import (
 	"github.com/sanjain/pixelflow/apps/auth/internal/metrics"
 	"github.com/sanjain/pixelflow/apps/auth/internal/middleware"
 	"github.com/sanjain/pixelflow/apps/auth/internal/models"
+	"github.com/sanjain/pixelflow/apps/auth/internal/tracing"
 	"github.com/sanjain/pixelflow/apps/auth/internal/utils"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func getEnv(key, fallback string) string {
@@ -27,6 +29,10 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	// Initialize Tracer
+	shutdown := tracing.InitTracer("auth-service")
+	defer shutdown(context.Background())
+
 	// Load Configuration
 	dbURL := getEnv("DATABASE_URL", "postgres://postgres:password@localhost:5432/auth_db?sslmode=disable")
 	port := getEnv("PORT", "50051")
@@ -37,10 +43,12 @@ func main() {
 	h := db.Init(dbURL)
 
 	// Setup Gin HTTP server
-	// Gin's default logger is replaced by our structured logger via middleware (optional, keeping default for now)
 	r := gin.Default()
 
-	// Prometheus Metrics Middleware
+	// Add OpenTelemetry Middleware
+	r.Use(otelgin.Middleware("auth-service"))
+
+	// Add Prometheus Middleware
 	r.Use(middleware.PrometheusMiddleware())
 
 	// CORS Middleware

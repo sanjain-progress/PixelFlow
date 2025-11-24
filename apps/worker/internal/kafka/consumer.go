@@ -12,9 +12,10 @@ import (
 
 // TaskEvent represents the message received from Kafka.
 type TaskEvent struct {
-	TaskID      string `json:"task_id"`
-	UserID      string `json:"user_id"`
-	OriginalURL string `json:"original_url"`
+	TaskID      string         `json:"task_id"`
+	UserID      string         `json:"user_id"`
+	OriginalURL string         `json:"original_url"`
+	Headers     []kafka.Header `json:"-"`
 }
 
 // Consumer handles reading messages from Kafka.
@@ -28,9 +29,10 @@ type Consumer struct {
 // groupID: Consumer group ID (for load balancing)
 func NewConsumer(brokers []string, topic, groupID string) *Consumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  brokers,
-		Topic:    topic,
+		Brokers:     brokers,
+		Topic:       topic,
 		StartOffset: kafka.FirstOffset,
+		GroupID:     groupID,
 	})
 
 	fmt.Printf("Kafka Consumer initialized for topic: %s (Group: %s)\n", topic, groupID)
@@ -66,6 +68,7 @@ func (c *Consumer) Consume(ctx context.Context, handler func(TaskEvent) error) {
 			slog.Warn("Failed to unmarshal event", "error", err)
 			continue // Skip malformed messages
 		}
+		event.Headers = m.Headers
 
 		fmt.Printf("Received task: %s\n", event.TaskID)
 

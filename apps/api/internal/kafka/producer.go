@@ -7,7 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 // Producer handles sending messages to Kafka.
@@ -43,13 +44,23 @@ func (p *Producer) PublishTask(ctx context.Context, event TaskEvent) error {
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
+	// Inject Trace Context
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+
+	headers := make([]kafka.Header, 0, len(carrier))
+	for k, v := range carrier {
+		headers = append(headers, kafka.Header{Key: k, Value: []byte(v)})
+	}
+
 	// Write message with a timeout
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	err = p.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(event.TaskID), // Key ensures ordering for same task (if needed)
-		Value: payload,
+		Key:     []byte(event.TaskID), // Key ensures ordering for same task (if needed)
+		Value:   payload,
+		Headers: headers,
 	})
 
 	if err != nil {
