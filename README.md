@@ -278,6 +278,68 @@ docker-compose logs -f auth-service
 docker-compose logs -f frontend
 ```
 
+### Rebuilding Docker Images After Code Changes
+
+**⚠️ IMPORTANT**: When you make code changes to any service, you **must rebuild** the Docker image for those changes to take effect.
+
+#### Why Rebuild?
+
+Docker containers run from **images**, not directly from your source code. When you edit files like `main.go` or `db.go`, those changes are only on your host machine. The running container still uses the old image that was built previously.
+
+#### When to Rebuild
+
+Rebuild the Docker image whenever you:
+- ✅ Modify Go source code (`.go` files)
+- ✅ Change dependencies (`go.mod`, `go.sum`)
+- ✅ Update configuration files used during build
+- ✅ Modify Dockerfiles
+- ❌ **NOT needed** for environment variables (just restart)
+- ❌ **NOT needed** for mounted volumes (changes are live)
+
+#### How to Rebuild
+
+```bash
+# Rebuild a specific service (recommended for faster iteration)
+docker-compose up -d --build auth-service
+docker-compose up -d --build api-service
+docker-compose up -d --build worker-service
+docker-compose up -d --build frontend
+
+# Rebuild all services
+docker-compose up -d --build
+
+# Rebuild without cache (use when dependencies change)
+docker-compose build --no-cache auth-service
+docker-compose up -d auth-service
+```
+
+#### Common Workflow
+
+```bash
+# 1. Make code changes
+vim apps/auth/internal/db/db.go
+
+# 2. Rebuild the affected service
+docker-compose up -d --build auth-service
+
+# 3. View logs to verify changes
+docker-compose logs -f auth-service
+
+# 4. Test your changes
+curl -X POST http://localhost:50051/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+```
+
+#### Restart vs Rebuild
+
+| Command | Use Case | Speed |
+|---------|----------|-------|
+| `docker-compose restart auth-service` | Only restarts the container (no code changes) | Fast (seconds) |
+| `docker-compose up -d --build auth-service` | Rebuilds image with new code + restarts | Slower (1-2 min) |
+
+**Rule of thumb**: If you changed code, **rebuild**. If you only changed environment variables or want to restart, use **restart**.
+
 ### Stop Services
 
 ```bash
